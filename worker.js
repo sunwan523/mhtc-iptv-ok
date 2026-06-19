@@ -26,6 +26,13 @@ const BLOCK_WORDS = ["cookie", "token", "quark", "baidu", "aliyun", "alipan", "u
 // 需要过滤的站点名称（精确匹配）
 const BLOCK_SITE_NAMES = ["领取嘟嘟盘免费容量", "我的云盘", "聚剧剧", "聚盘搜"];
 
+// 文本替换规则
+const TEXT_REPLACEMENTS = [
+  { from: "去【太太太硬了】领取嘟嘟盘免费容量", to: "梦回唐朝格调酒店欢迎您！" },
+  { from: "领取嘟嘟盘免费容量", to: "精彩内容推荐" },
+  { from: "太太太硬了", to: "影视精选" }
+];
+
 // 老电视UA识别
 const TV_UA_KEYWORDS = ["okhttp", "iptv", "player", "android", "tvbox", "mi", "hisense", 
   "tcl", "skyworth", "changhong", "philips", "lg", "samsung", "sony", "panasonic", 
@@ -100,11 +107,20 @@ function parseJsonSafely(text) {
   return null;
 }
 
+// 文本替换
+function replaceText(text) {
+  if (!text) return text;
+  for (const { from, to } of TEXT_REPLACEMENTS) {
+    text = text.replace(new RegExp(from, "g"), to);
+  }
+  return text;
+}
+
 // 构建老人版配置
 function makeElderConfig(config) {
   const allSites = Array.isArray(config.sites) ? config.sites : [];
   
-  // 过滤站点
+  // 过滤站点并替换文本
   const filteredSites = allSites.filter(site => {
     const siteName = (site.name || "").toLowerCase().trim();
     const siteKey = (site.key || "").toLowerCase().trim();
@@ -124,7 +140,11 @@ function makeElderConfig(config) {
     }
     
     return true;
-  });
+  }).map(site => ({
+    ...site,
+    name: replaceText(site.name),
+    remark: replaceText(site.remark)
+  }));
   
   // 热播置顶：优先显示PREFERRED_KEYS中的站点
   const prioritySites = filteredSites.filter(s => PREFERRED_KEYS.includes(s.key));
