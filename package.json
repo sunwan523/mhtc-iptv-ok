@@ -1,0 +1,15 @@
+{
+  "name": "mhtc-iptv-ok",
+  "version": "1.0.0",
+  "description": "OK影视老人版 - 热播置顶/上游可配置/老电视兼容",
+  "main": "worker.js",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "preview": "wrangler preview"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
