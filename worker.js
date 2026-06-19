@@ -3,8 +3,6 @@
  * 特点：热播置顶、上游可配置、兼容老旧电视
  */
 
-const TOKEN = "abc123";
-
 const UPSTREAM_URLS = [
   "https://www.xn--sss604efuw.cc/tv"
 ];
@@ -210,7 +208,7 @@ function commonHeaders(contentType) {
 function htmlPage(request) {
   const origin = new URL(request.url).origin;
   return new Response(
-    `OK影视老人版配置地址：\n\n${origin}/${TOKEN}\n\n当前上游：${UPSTREAM}\n\n可用上游：\n${UPSTREAM_URLS.map((u, i) => `${i + 1}. ${u}`).join("\n")}`,
+    `OK影视老人版配置地址：\n\n${origin}/\n\n当前上游：${UPSTREAM}\n\n可用上游：\n${UPSTREAM_URLS.map((u, i) => `${i + 1}. ${u}`).join("\n")}`,
     { headers: commonHeaders("text/plain;charset=utf-8") }
   );
 }
