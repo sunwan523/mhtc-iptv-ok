@@ -1,252 +1,160 @@
 /*
  * OK影视老人版 - Cloudflare Worker
- * 特点：热播置顶、上游可配置、兼容老旧电视
+ * 特点：热播置顶、过滤网盘广告、兼容老电视
  */
 
+// 上游源列表
 const UPSTREAM_URLS = [
-  "https://www.xn--sss604efuw.cc/tv",
+  "http://www.饭太硬.cc/tv",
+  "http://fty.xxooo.cf/tv",
   "https://raw.githubusercontent.com/tushen6/Tomorrow/main/tvbox.json",
-  "https://raw.fastgit.org/tushen6/Tomorrow/main/tvbox.json",
-  "https://gh.tzxzy.top/raw/tushen6/Tomorrow/main/tvbox.json",
-  "https://jihulab.com/api/v4/projects/469282/repository/files/tvbox.json/raw?ref=main"
-];
-let UPSTREAM = UPSTREAM_URLS[0];
-
-const LEGACY_TV_COMPATIBLE = true;
-
-const PREFERRED_KEYS = [
-  "热播",
-  "玩偶",
-  "厂长",
-  "立播",
-  "荐片",
-  "糯米",
-  "文采",
-  "光影",
-  "原创",
-  "视界",
-  "播客",
-  "米陌",
-  "剧圈",
-  "奥特",
-  "咕咕",
-  "Dm84",
-  "Anime1",
-  "Bili",
-  "Biliych",
-  "dr_兔小贝",
-  "少儿教育",
-  "小学课堂",
-  "初中课堂",
-  "高中教育",
-  "MTV",
-  "MTV1",
-  "有声小说",
-  "Aid"
+  "https://raw.fastgit.org/tushen6/Tomorrow/main/tvbox.json"
 ];
 
-const BLOCK_WORDS = [
-  "cookie", "token", "quark", "baidu", "aliyun", "alipan", "uc",
+// 优先显示的站点（热播置顶）
+const PREFERRED_KEYS = ["热播", "玩偶", "厂长", "立播", "荐片", "糯米", "文采", "光影",
+  "原创", "视界", "播客", "米陌", "剧圈", "奥特", "咕咕", "Dm84",
+  "Anime1", "Bili", "Biliych", "dr_兔小贝", "少儿教育", "小学课堂",
+  "初中课堂", "高中教育", "MTV", "MTV1", "有声小说", "Aid"];
+
+// 需要过滤的关键词
+const BLOCK_WORDS = ["cookie", "token", "quark", "baidu", "aliyun", "alipan", "uc",
   "115", "189", "webdav", "alist", "云盘", "网盘", "夸克", "百度",
-  "阿里", "天翼", "推送", "搜搜", "盘搜", "盘她", "盘他", "配置", "切源", "广告", "勿信"
-];
+  "阿里", "天翼", "推送", "搜搜", "盘搜", "盘她", "盘他", "配置", "切源", "广告", "勿信",
+  "四盘", "三盘", "两盘", "云", "盘", "领取", "免费", "容量", "嘟"];
 
-const PLAYER_UA_WORDS = [
-  "okhttp", "iptv", "player", "vlc", "tivimate", "kodi", "cfnetwork", "android", "tvbox",
-  "mi", "hisense", "tcl", "skyworth", "changhong", "philips", "lg", "samsung",
-  "sony", "panasonic", "sharp", "tongson", "baofeng", "storm", "leTV", "letv",
-  "huawei", "honor", "oppo", "vidaa"
-];
+// 需要过滤的站点名称（精确匹配）
+const BLOCK_SITE_NAMES = ["领取嘟嘟盘免费容量", "我的云盘", "聚剧剧", "聚盘搜"];
+
+// 老电视UA识别
+const TV_UA_KEYWORDS = ["okhttp", "iptv", "player", "android", "tvbox", "mi", "hisense", 
+  "tcl", "skyworth", "changhong", "philips", "lg", "samsung", "sony", "panasonic", 
+  "sharp", "tongson", "baofeng", "storm", "letv", "huawei", "honor", "oppo", "vidaa"];
 
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    if (url.pathname === "/config") return handleConfig(request, url.origin);
-    if (url.pathname === "/info") return htmlPage(request);
+    
+    // 信息页面
+    if (url.pathname === "/info") return infoPage(request);
+    
+    // 只允许根路径访问
     if (url.pathname !== "/" && url.pathname !== "") return new Response("Not found", { status: 404 });
 
-    try {
-      const source = await loadConfig();
-      const clean = makeElderConfig(source);
-      const body = JSON.stringify(clean);
-      const ua = (request.headers.get("user-agent") || "").toLowerCase();
-      const isPlayer = PLAYER_UA_WORDS.some((word) => ua.includes(word));
-
-      return new Response(isPlayer ? body : toBase64Utf8(body), {
-        headers: commonHeaders(isPlayer ? "application/json;charset=utf-8" : "text/plain;charset=utf-8")
-      });
-    } catch (err) {
-      return new Response(`Config load failed: ${err.message}`, {
-        status: 502,
-        headers: commonHeaders("text/plain;charset=utf-8")
-      });
+    // 尝试所有上游源
+    for (const upstream of UPSTREAM_URLS) {
+      try {
+        const res = await fetch(upstream, { 
+          cf: { cacheTtl: 1800 },
+          headers: { "User-Agent": "okhttp/4.0" },
+          redirect: "follow"
+        });
+        
+        if (!res.ok) continue;
+        
+        const text = await res.text();
+        
+        // 跳过HTML页面
+        if (text.startsWith("<!DOCTYPE") || text.startsWith("<html")) continue;
+        
+        // 尝试解析JSON
+        let config = parseJsonSafely(text);
+        if (!config) {
+          try {
+            config = parseJsonSafely(atob(text.replace(/\s/g, "")));
+          } catch {}
+        }
+        
+        if (config && config.sites) {
+          const clean = makeElderConfig(config);
+          return new Response(JSON.stringify(clean), {
+            headers: { "Content-Type": "application/json;charset=utf-8", "Access-Control-Allow-Origin": "*" }
+          });
+        }
+        
+        // 直接返回原始内容
+        return new Response(text, { 
+          headers: { "Content-Type": "application/json;charset=utf-8", "Access-Control-Allow-Origin": "*" }
+        });
+      } catch {}
     }
+    
+    return new Response("Config load failed: All upstreams unavailable", { status: 502 });
   }
 };
 
-async function loadConfig() {
-  const errors = [];
-  for (const upstream of UPSTREAM_URLS) {
+// 安全解析JSON
+function parseJsonSafely(text) {
+  try {
+    text = text.replace(/^\uFEFF/, "").trim();
+    return JSON.parse(text);
+  } catch {
     try {
-      const res = await fetch(upstream, {
-        headers: { "user-agent": LEGACY_TV_COMPATIBLE ? "Mozilla/5.0 (Linux; Android 9) AppleWebKit/537.36" : "okhttp/4.0" },
-        cf: { cacheTtl: 1800, cacheEverything: true }
-      });
-      if (!res.ok) { errors.push(`${upstream}: ${res.status}`); continue; }
-
-      const bytes = new Uint8Array(await res.arrayBuffer());
-      const text = new TextDecoder().decode(bytes);
-      let parsed = tryParseJson(text);
-      if (parsed) { UPSTREAM = upstream; return parsed; }
-
-      if (/^[0-9a-f]+$/i.test(text.trim())) {
-        parsed = tryParseJson(new TextDecoder().decode(hexToBytes(text.trim())));
-        if (parsed) { UPSTREAM = upstream; return parsed; }
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start >= 0 && end > start) {
+        return JSON.parse(text.slice(start, end + 1).replace(/,\s*([}\]])/g, "$1"));
       }
-
-      const jpegEnd = findJpegEnd(bytes);
-      if (jpegEnd > 0) {
-        parsed = parseBase64Tail(new TextDecoder().decode(bytes.slice(jpegEnd)));
-        if (parsed) { UPSTREAM = upstream; return parsed; }
-      }
-    } catch (e) { errors.push(`${upstream}: ${e.message}`); }
+    } catch {}
   }
-  throw new Error(`All upstreams failed: ${errors.join("; ")}`);
+  return null;
 }
 
+// 构建老人版配置
 function makeElderConfig(config) {
   const allSites = Array.isArray(config.sites) ? config.sites : [];
-  const selected = [];
-  const usedKeys = new Set();
-
-  for (const key of PREFERRED_KEYS) {
-    const site = allSites.find((s) => s.key === key && !usedKeys.has(s.key));
-    if (site && !isBlockedSite(site)) { selected.push(site); usedKeys.add(site.key); }
-  }
-
-  for (const site of allSites) {
-    if (usedKeys.has(site.key) || isBlockedSite(site) || selected.length >= 32) continue;
-    selected.push(site); usedKeys.add(site.key);
-  }
-
-  const lives = Array.isArray(config.lives)
-    ? config.lives.filter((live) => !isBlockedText(`${live.name || ""} ${live.url || ""}`))
-    : [];
-
+  
+  // 过滤站点
+  const filteredSites = allSites.filter(site => {
+    const siteName = (site.name || "").toLowerCase().trim();
+    const siteKey = (site.key || "").toLowerCase().trim();
+    
+    // 精确匹配过滤站点名称
+    for (const blockedName of BLOCK_SITE_NAMES) {
+      if ((site.name || "").includes(blockedName)) {
+        return false;
+      }
+    }
+    
+    // 关键词过滤
+    for (const word of BLOCK_WORDS) {
+      if (siteName.includes(word.toLowerCase()) || siteKey.includes(word.toLowerCase())) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+  
+  // 热播置顶：优先显示PREFERRED_KEYS中的站点
+  const prioritySites = filteredSites.filter(s => PREFERRED_KEYS.includes(s.key));
+  const otherSites = filteredSites.filter(s => !PREFERRED_KEYS.includes(s.key)).slice(0, 32 - prioritySites.length);
+  
   return {
-    spider: config.spider, wallpaper: config.wallpaper || "", logo: config.logo || "",
-    sites: selected, lives, flags: config.flags || [],
-    parsers: config.parsers || [], rules: config.rules || [], ads: config.ads || []
+    spider: config.spider || "", 
+    wallpaper: config.wallpaper || "", 
+    logo: config.logo || "",
+    sites: [...prioritySites, ...otherSites], 
+    lives: [],  // 清空直播列表
+    flags: config.flags || [], 
+    parsers: config.parsers || [], 
+    rules: config.rules || [], 
+    ads: []     // 清空广告列表
   };
 }
 
-function isBlockedSite(site) {
-  if (isBlockedText(JSON.stringify(site).toLowerCase())) return true;
-  if (site.searchable === 1 && site.quickSearch === 0 && String(site.name || "").includes("搜")) return true;
-  return false;
-}
-
-function isBlockedText(text) {
-  return BLOCK_WORDS.some((word) => text.toLowerCase().includes(word.toLowerCase()));
-}
-
-function tryParseJson(text) {
-  text = text.replace(/^\uFEFF/, "").trim();
-  
-  try { return JSON.parse(text); } catch {}
-  try { return JSON.parse(cleanJsonText(text)); } catch {}
-  
-  const start = text.indexOf("{"); 
-  const end = text.lastIndexOf("}");
-  if (start >= 0 && end > start) {
-    try { return JSON.parse(text.slice(start, end + 1)); } catch {}
-    try { return JSON.parse(cleanJsonText(text.slice(start, end + 1))); } catch {}
-  }
-  
-  const bracketStart = text.indexOf("[");
-  const bracketEnd = text.lastIndexOf("]");
-  if (bracketStart >= 0 && bracketEnd > bracketStart) {
-    try { return JSON.parse(text.slice(bracketStart, bracketEnd + 1)); } catch {}
-  }
-  
-  return null;
-}
-
-function cleanJsonText(text) {
-  text = text.replace(/^\uFEFF/, "");
-  text = text.replace(/^\s*\/\/.*$/gm, "");
-  text = text.replace(/,\s*([}\]])/g, "$1");
-  text = text.replace(/(\s*[\[{])\s*(\d+)\s*:/g, "$1\"$2\":");
-  text = text.replace(/:\s*(\d+)\s*([,\]}])/g, ":$1$2");
-  text = text.replace(/(['"])?([a-zA-Z_\u4e00-\u9fa5]+)(['"])?\s*:/g, "\"$2\":");
-  return text.trim();
-}
-
-function parseBase64Tail(tail) {
-  const compact = tail.replace(/[^A-Za-z0-9+/=]/g, "");
-  for (const marker of ["eyJ", "ew0K", "ewo", "ewog", "ew"]) {
-    const index = compact.indexOf(marker);
-    if (index < 0) continue;
-    try { return tryParseJson(fromBase64Utf8(compact.slice(index))); } catch { continue; }
-  }
-  return null;
-}
-
-function findJpegEnd(bytes) {
-  for (let i = 0; i < bytes.length - 1; i++) {
-    if (bytes[i] === 0xff && bytes[i + 1] === 0xd9) return i + 2;
-  }
-  return -1;
-}
-
-function hexToBytes(hex) {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < bytes.length; i++) { bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16); }
-  return bytes;
-}
-
-function toBase64Utf8(text) {
-  const bytes = new TextEncoder().encode(text);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
-
-function fromBase64Utf8(text) {
-  const binary = atob(text);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
-  return new TextDecoder().decode(bytes);
-}
-
-function commonHeaders(contentType) {
-  return {
-    "Content-Type": contentType,
-    "Access-Control-Allow-Origin": "*",
-    "Cache-Control": "public, max-age=1800"
-  };
-}
-
-function htmlPage(request) {
+// 信息页面
+function infoPage(request) {
   const origin = new URL(request.url).origin;
   return new Response(
-    `OK影视老人版配置地址：\n\n${origin}/\n\n当前上游：${UPSTREAM}\n\n可用上游：\n${UPSTREAM_URLS.map((u, i) => `${i + 1}. ${u}`).join("\n")}`,
-    { headers: commonHeaders("text/plain;charset=utf-8") }
-  );
-}
-
-function handleConfig(request, origin) {
-  const url = new URL(request.url);
-  if (url.searchParams.has("upstream")) {
-    const idx = parseInt(url.searchParams.get("upstream")) - 1;
-    if (idx >= 0 && idx < UPSTREAM_URLS.length) {
-      UPSTREAM = UPSTREAM_URLS[idx];
-      return new Response(`上游已切换为: ${UPSTREAM}`, { headers: commonHeaders("text/plain;charset=utf-8") });
-    }
-    return new Response("无效的上游索引", { status: 400 });
-  }
-  return new Response(
-    `当前配置：\n口令: ${TOKEN}\n上游: ${UPSTREAM}\n\n上游列表：\n${UPSTREAM_URLS.map((u, i) => `${i + 1}. ${u}${u === UPSTREAM ? " (当前)" : ""}`).join("\n")}\n\n切换上游：${origin}/config?upstream=1\n配置地址：${origin}/${TOKEN}`,
-    { headers: commonHeaders("text/plain;charset=utf-8") }
+    `OK影视老人版\n\n` +
+    `配置地址：${origin}/\n\n` +
+    `特点：\n` +
+    `- 热播置顶：打开就能看\n` +
+    `- 过滤网盘：移除云盘、夸克等站点\n` +
+    `- 过滤广告：移除推送、领取容量等站点\n` +
+    `- 简化界面：清空直播和广告\n` +
+    `- 兼容老电视：支持暴风TV、小米、海信等`,
+    { headers: { "Content-Type": "text/plain;charset=utf-8" } }
   );
 }
