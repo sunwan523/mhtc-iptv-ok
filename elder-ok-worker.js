@@ -8,7 +8,8 @@ const TOKEN = "abc123";
 
 // 上游地址（可修改为其他来源）
 const UPSTREAM_URLS = [
-  "https://github.com/tushen6/Tomorrow/raw/main/tvbox.json",
+  "https://raw.githubusercontent.com/tushen6/Tomorrow/main/tvbox.json",
+  "https://raw.fastgit.org/tushen6/Tomorrow/main/tvbox.json",
   "https://www.xn--sss604efuw.cc/tv"
 ];
 let UPSTREAM = UPSTREAM_URLS[0]; // 当前使用的上游
