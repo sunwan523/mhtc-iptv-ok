@@ -4,7 +4,11 @@
  */
 
 const UPSTREAM_URLS = [
-  "https://www.xn--sss604efuw.cc/tv"
+  "https://www.xn--sss604efuw.cc/tv",
+  "https://raw.githubusercontent.com/tushen6/Tomorrow/main/tvbox.json",
+  "https://raw.fastgit.org/tushen6/Tomorrow/main/tvbox.json",
+  "https://gh.tzxzy.top/raw/tushen6/Tomorrow/main/tvbox.json",
+  "https://jihulab.com/api/v4/projects/469282/repository/files/tvbox.json/raw?ref=main"
 ];
 let UPSTREAM = UPSTREAM_URLS[0];
 
