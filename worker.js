@@ -151,17 +151,35 @@ function isBlockedText(text) {
 }
 
 function tryParseJson(text) {
-  try { return JSON.parse(cleanJsonText(text)); } catch {
-    const start = text.indexOf("{"); const end = text.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try { return JSON.parse(cleanJsonText(text.slice(start, end + 1))); } catch { return null; }
-    }
-    return null;
+  text = text.replace(/^\uFEFF/, "").trim();
+  
+  try { return JSON.parse(text); } catch {}
+  try { return JSON.parse(cleanJsonText(text)); } catch {}
+  
+  const start = text.indexOf("{"); 
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    try { return JSON.parse(text.slice(start, end + 1)); } catch {}
+    try { return JSON.parse(cleanJsonText(text.slice(start, end + 1))); } catch {}
   }
+  
+  const bracketStart = text.indexOf("[");
+  const bracketEnd = text.lastIndexOf("]");
+  if (bracketStart >= 0 && bracketEnd > bracketStart) {
+    try { return JSON.parse(text.slice(bracketStart, bracketEnd + 1)); } catch {}
+  }
+  
+  return null;
 }
 
 function cleanJsonText(text) {
-  return text.replace(/^\s*\/\/.*$/gm, "").replace(/,\s*([}\]])/g, "$1").trim();
+  text = text.replace(/^\uFEFF/, "");
+  text = text.replace(/^\s*\/\/.*$/gm, "");
+  text = text.replace(/,\s*([}\]])/g, "$1");
+  text = text.replace(/(\s*[\[{])\s*(\d+)\s*:/g, "$1\"$2\":");
+  text = text.replace(/:\s*(\d+)\s*([,\]}])/g, ":$1$2");
+  text = text.replace(/(['"])?([a-zA-Z_\u4e00-\u9fa5]+)(['"])?\s*:/g, "\"$2\":");
+  return text.trim();
 }
 
 function parseBase64Tail(tail) {
