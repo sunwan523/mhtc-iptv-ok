@@ -6,9 +6,9 @@
 const TOKEN = "abc123";
 
 const UPSTREAM_URLS = [
+  "https://www.xn--sss604efuw.cc/tv",
   "https://raw.githubusercontent.com/tushen6/Tomorrow/main/tvbox.json",
-  "https://raw.fastgit.org/tushen6/Tomorrow/main/tvbox.json",
-  "https://www.xn--sss604efuw.cc/tv"
+  "https://raw.fastgit.org/tushen6/Tomorrow/main/tvbox.json"
 ];
 let UPSTREAM = UPSTREAM_URLS[0];
 
