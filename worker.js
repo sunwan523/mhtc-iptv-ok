@@ -6,11 +6,7 @@
 const TOKEN = "abc123";
 
 const UPSTREAM_URLS = [
-  "https://www.xn--sss604efuw.cc/tv",
-  "https://www.dmtv.ml/tv",
-  "https://www.dmtv.ml/top",
-  "https://cdn.jsdelivr.net/gh/bean666/TV@main/TV.json",
-  "https://raw.fastgit.org/bean666/TV/main/TV.json"
+  "https://www.xn--sss604efuw.cc/tv"
 ];
 let UPSTREAM = UPSTREAM_URLS[0];
 
