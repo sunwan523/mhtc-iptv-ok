@@ -60,9 +60,9 @@ const PLAYER_UA_WORDS = [
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    if (url.pathname === "/" || url.pathname === "") return htmlPage(request);
     if (url.pathname === "/config") return handleConfig(request, url.origin);
-    if (url.pathname !== `/${TOKEN}`) return new Response("Not found", { status: 404 });
+    if (url.pathname === "/info") return htmlPage(request);
+    if (url.pathname !== "/" && url.pathname !== "") return new Response("Not found", { status: 404 });
 
     try {
       const source = await loadConfig();

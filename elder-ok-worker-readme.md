@@ -5,11 +5,12 @@
 默认入口：
 
 ```text
-https://你的Worker域名/abc123
+https://你的Worker域名/
 ```
 
 ## 特点
 
+- **简化访问**：直接访问根域名即可，无需额外路径
 - **热播置顶**：热播剧集放在最前面，打开就能看
 - **上游可切换**：支持多个上游源，默认使用 Tomorrow
 - **兼容老电视**：支持小米、海信、TCL、创维、三星、LG、飞利浦等主流品牌电视
@@ -32,15 +33,10 @@ https://你的Worker域名/abc123
 4. OK影视里填写：
 
 ```text
-https://你的Worker域名/abc123
+https://你的Worker域名/
 ```
 
 ## 常用修改
-
-改访问口令：
-```js
-const TOKEN = "abc123";
-```
 
 改上游列表：
 ```js
@@ -76,6 +72,11 @@ https://你的Worker域名/config
 https://你的Worker域名/config?upstream=2
 ```
 
+查看帮助信息：
+```
+https://你的Worker域名/info
+```
+
 ## 老电视兼容
 
 Worker 内置了主流电视品牌 UA 识别：
@@ -87,5 +88,7 @@ Worker 内置了主流电视品牌 UA 识别：
 - 飞利浦 (philips)
 - LG (lg)
 - 三星 (samsung)
+- 暴风TV (baofeng/storm)
+- 乐视 (leTV/letv)
 
 如果某台老电视无法使用，可以检查其 User-Agent 是否包含设备品牌名称。

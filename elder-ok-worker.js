@@ -132,7 +132,7 @@ export default {
     const url = new URL(request.url);
 
     // 首页显示配置信息
-    if (url.pathname === "/" || url.pathname === "") {
+    if (url.pathname === "/info" || url.pathname === "/help") {
       return htmlPage(request);
     }
 
@@ -141,7 +141,8 @@ export default {
       return handleConfig(request);
     }
 
-    if (url.pathname !== `/${TOKEN}`) {
+    // 根路径直接返回配置
+    if (url.pathname !== "/" && url.pathname !== "") {
       return new Response("Not found", { status: 404 });
     }
 
