@@ -111,16 +111,32 @@ function parseJsonSafely(text) {
 function replaceText(text) {
   if (!text) return text;
   for (const { from, to } of TEXT_REPLACEMENTS) {
-    text = text.replace(new RegExp(from, "g"), to);
+    text = text.replace(new RegExp(from.replace(/[\\[\\]{}()*+?^$.|]/g, "\\$&"), "g"), to);
   }
   return text;
+}
+
+// 递归替换对象中的所有文本
+function replaceAllText(obj) {
+  if (typeof obj === "string") {
+    return replaceText(obj);
+  } else if (Array.isArray(obj)) {
+    return obj.map(item => replaceAllText(item));
+  } else if (typeof obj === "object" && obj !== null) {
+    const result = {};
+    for (const key in obj) {
+      result[key] = replaceAllText(obj[key]);
+    }
+    return result;
+  }
+  return obj;
 }
 
 // 构建老人版配置
 function makeElderConfig(config) {
   const allSites = Array.isArray(config.sites) ? config.sites : [];
   
-  // 过滤站点并替换文本
+  // 过滤站点
   const filteredSites = allSites.filter(site => {
     const siteName = (site.name || "").toLowerCase().trim();
     const siteKey = (site.key || "").toLowerCase().trim();
@@ -140,17 +156,14 @@ function makeElderConfig(config) {
     }
     
     return true;
-  }).map(site => ({
-    ...site,
-    name: replaceText(site.name),
-    remark: replaceText(site.remark)
-  }));
+  });
   
   // 热播置顶：优先显示PREFERRED_KEYS中的站点
   const prioritySites = filteredSites.filter(s => PREFERRED_KEYS.includes(s.key));
   const otherSites = filteredSites.filter(s => !PREFERRED_KEYS.includes(s.key)).slice(0, 32 - prioritySites.length);
   
-  return {
+  // 构建最终配置并替换所有文本
+  const result = {
     spider: config.spider || "", 
     wallpaper: config.wallpaper || "", 
     logo: config.logo || "",
@@ -161,6 +174,9 @@ function makeElderConfig(config) {
     rules: config.rules || [], 
     ads: []     // 清空广告列表
   };
+  
+  // 替换所有文本内容（包括标题等）
+  return replaceAllText(result);
 }
 
 // 信息页面
