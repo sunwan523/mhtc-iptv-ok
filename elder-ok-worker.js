@@ -91,6 +91,7 @@ const PLAYER_UA_WORDS = [
   "cfnetwork",
   "android",
   "tvbox",
+  // 国产电视品牌
   "mi",
   "hisense",
   "tcl",
@@ -98,7 +99,19 @@ const PLAYER_UA_WORDS = [
   "changhong",
   "philips",
   "lg",
-  "samsung"
+  "samsung",
+  "sony",
+  "panasonic",
+  "sharp",
+  "tongson",    // 暴风TV
+  "baofeng",     // 暴风TV
+  "storm",       // 暴风TV
+  "leTV",
+  "letv",
+  "huawei",
+  "honor",
+  "oppo",
+  "vidaa"
 ];
 
 // Tomorrow 特有的站点 key
